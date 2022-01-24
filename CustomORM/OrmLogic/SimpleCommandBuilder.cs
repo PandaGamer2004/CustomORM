@@ -201,16 +201,8 @@ namespace CustomORM.OrmLogic
             return new QueryEntity(sb.ToString(), new[] {pkParam});
         }
 
-        public QueryEntity GenerateNavigationalPropertyIncludeQuery(string nameOfIncludeProperty)
+        public QueryEntity GenerateNavigationalPropertyIncludeQuery(PropertyInfo propertyToInclude)
         {
-            var propertyToInclude = _entityInfo[nameOfIncludeProperty];
-
-            if (propertyToInclude is null || !_entityInfo
-                .NavigationalProperties.Contains(propertyToInclude))
-            {
-                throw new NavigationalPropertyNotFoundException(nameOfIncludeProperty);
-            }
-
             var navPropertyEntityInfo = _entityInfoCollector.GetEntityInfoForType(propertyToInclude.PropertyType);
             var innerJoinOnClause = GetJoinOnClause(propertyToInclude, navPropertyEntityInfo);
 

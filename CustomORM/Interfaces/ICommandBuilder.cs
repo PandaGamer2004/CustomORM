@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using CustomORM.OrmLogic;
 
 namespace CustomORM.Interfaces
@@ -12,6 +13,6 @@ namespace CustomORM.Interfaces
         QueryEntity GenerateUpdateCommand(T entity);
         
         QueryEntity GenerateDeleteCommand(T entity);
-        QueryEntity GenerateNavigationalPropertyIncludeQuery(string nameOfIncludeProperty);
+        QueryEntity GenerateNavigationalPropertyIncludeQuery(PropertyInfo propertyToInclude);
     }
 }

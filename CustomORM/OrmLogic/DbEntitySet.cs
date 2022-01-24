@@ -2,8 +2,10 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Linq;
 using System.Linq.Expressions;
 using CustomORM.EventArgsObjects;
+using CustomORM.Exceptions;
 using CustomORM.Interfaces;
 
 namespace CustomORM.OrmLogic
@@ -14,6 +16,7 @@ namespace CustomORM.OrmLogic
         public DbEntitySet(SqlCommand command)
         {
             _command = command;
+            _entityInfo = _entityInfoCollector.GetEntityInfoForType(typeof(T));
         }
         
         private SqlCommand _command;
@@ -22,6 +25,10 @@ namespace CustomORM.OrmLogic
 
         private readonly IEntityStateTracker<T> _entityStateTracker = new EntityStateTracker<T>(
             new EntityCopyBuilder<T>(), new EntityEqualityComparer<T>());
+
+        private readonly EntityInfoCollector _entityInfoCollector = EntityInfoCollector.Instance;
+        private readonly EntityInfo _entityInfo;
+        
 
         private void MakeAndExecuteQueryForEachEntity(IEnumerable<T> entities, Func<T, QueryEntity> queryBuilder)
         {
@@ -93,7 +100,35 @@ namespace CustomORM.OrmLogic
 
         public void Include(string nameOfIncludeProperty)
         {
-            _commandBuilder.GenerateNavigationalPropertyIncludeQuery(nameOfIncludeProperty);
+            var propertyToInclude = _entityInfo[nameOfIncludeProperty];
+
+            if (propertyToInclude is null || !_entityInfo
+                .NavigationalProperties.Contains(propertyToInclude))
+            {
+                throw new NavigationalPropertyNotFoundException(nameOfIncludeProperty);
+            }
+            
+            var includeQueryEntity = _commandBuilder.GenerateNavigationalPropertyIncludeQuery(propertyToInclude);
+            if (includeQueryEntity.CommandParams is not null)
+            {
+                _command.Parameters.AddRange((SqlParameter[]) includeQueryEntity.CommandParams);
+            }
+            
+            _command.CommandText = includeQueryEntity.QueryText;
+            List<Object> entitiesToInclude = new();
+            var includeEntityModelSerializer = new ModelSerializer(propertyToInclude.PropertyType);
+                
+            using var reader = _command.ExecuteReader();
+            if (reader.HasRows)
+            {
+                while (reader.Read())
+                {
+                    var serializedEntity = includeEntityModelSerializer.SerializeRowToEntity(reader);
+                    entitiesToInclude.Add(serializedEntity);                       
+                }
+            }
+
+            _entityStateTracker.AddIncludedEntities(entitiesToInclude);
         }
 
         public void Include<T2>(Expression<Func<T, T2>> expression)

@@ -104,5 +104,10 @@ namespace CustomORM.OrmLogic
         public IEnumerable<T> GetEntitiesToUpdate() => GetEntitiesWithState(EntityState.Changed);
 
         public IEnumerable<T> GetEntitiesToDelete() => GetEntitiesWithState(EntityState.Deleted);
+        
+        public void AddIncludedEntities(IEnumerable<object> entitiesToInclude)
+        {
+            
+        }
     }
 } 
