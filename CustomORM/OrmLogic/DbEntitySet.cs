@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Data.SqlClient;
-using System.Linq;
 using System.Linq.Expressions;
 using CustomORM.EventArgsObjects;
 using CustomORM.Interfaces;
@@ -65,17 +64,25 @@ namespace CustomORM.OrmLogic
 
         public void AddEntity(T entity)
         {
+            _entityStateTracker.RegisterEntityToAdd(entity);
         }
 
         public void RemoveEntity(T entityToRemove)
         {
+            _entityStateTracker.RegisterEntityToDelete(entityToRemove);
+        }
+
+        public void RemoveEntitiesRange(params T[] entitiesToRemove)
+        {
+            _entityStateTracker.RegisterEntitiesToDelete(entitiesToRemove);
         }
 
         public void AddRangeEntities(params T[] entitiesToAdd)
         {
+            _entityStateTracker.RegisterEntitiesToAdd(entitiesToAdd);
         }
 
-
+        
         public T Find(int id)
         {
             throw new NotImplementedException();

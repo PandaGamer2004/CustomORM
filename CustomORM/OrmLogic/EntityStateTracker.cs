@@ -59,6 +59,14 @@ namespace CustomORM.OrmLogic
             registerEntityToDelete.MakeStateDeleted();
         }
 
+        public void RegisterEntitiesToDelete(params T[] entities)
+        {
+            foreach (var entity in entities)
+            {
+                RegisterEntityToDelete(entity);
+            }
+        }
+
         public void StartTrackingRange(params T[] entities)
         {
             foreach (var entity in entities)

@@ -9,6 +9,7 @@ namespace CustomORM.Interfaces
     {
         void AddEntity(T entity);
         void RemoveEntity(T entityToRemove);
+        void RemoveEntitiesRange(params T[] entitiesToRemove);
         void AddRangeEntities(params T[] entitiesToAdd);
         T Find(Int32 id);
         T Find(Guid id);

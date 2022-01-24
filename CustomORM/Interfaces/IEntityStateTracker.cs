@@ -12,7 +12,8 @@ namespace CustomORM.Interfaces
         void RegisterEntitiesToAdd(params T[] entities);
         
         void RegisterEntityToDelete(T entity);
-        
+
+        void RegisterEntitiesToDelete(params T[] entities);
         void StartTrackingRange(params T[] entities);
         void RemoveFromTracking(T entity);
         void RemoveFromTracking(params T[] entities);
