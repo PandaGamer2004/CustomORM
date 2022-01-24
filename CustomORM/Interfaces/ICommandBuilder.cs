@@ -12,5 +12,6 @@ namespace CustomORM.Interfaces
         QueryEntity GenerateUpdateCommand(T entity);
         
         QueryEntity GenerateDeleteCommand(T entity);
+        QueryEntity GenerateNavigationalPropertyIncludeQuery(string nameOfIncludeProperty);
     }
 }

@@ -8,6 +8,7 @@ using CustomORM.Interfaces;
 
 namespace CustomORM.OrmLogic
 {
+    
     public class DbSession : ISession, IDisposable
     {
         private SqlTransaction _currentTransaction;

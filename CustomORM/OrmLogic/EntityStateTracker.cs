@@ -9,7 +9,6 @@ namespace CustomORM.OrmLogic
     {
         private readonly IEntityEqualityComparer<T> _entityEqualityComparer;
         private readonly IEntityCopyBuilder<T> _entityCopyBuilder;
-        //TODO THINK ABOUT ANOTHER DATA STRUCTURE FOR TRACKED ENTITES
         private readonly List<EntityTrackingItem<T>> _trackedEntities = new();
         
         public EntityStateTracker(IEntityCopyBuilder<T> entityCopyBuilder, IEntityEqualityComparer<T> entityEqualityComparer)

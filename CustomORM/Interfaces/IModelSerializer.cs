@@ -1,9 +1,10 @@
-﻿using System.Data.SqlClient;
+﻿using System;
+using System.Data.SqlClient;
 
 namespace CustomORM.Interfaces
 {
-    public interface IModelSerializer<T>
+    public interface IModelSerializer
     {
-        T SerializeRowToEntity(SqlDataReader reader);
+        Object SerializeRowToEntity(SqlDataReader reader);
     }
 }

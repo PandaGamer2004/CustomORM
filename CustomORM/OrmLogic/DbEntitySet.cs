@@ -15,10 +15,10 @@ namespace CustomORM.OrmLogic
         {
             _command = command;
         }
-
+        
         private SqlCommand _command;
         private readonly ICommandBuilder<T> _commandBuilder = new SimpleCommandBuilder<T>();
-        private readonly IModelSerializer<T> _modelSerializer = new ModelSerializer<T>();
+        private readonly IModelSerializer _modelSerializer = new ModelSerializer(typeof(T));
 
         private readonly IEntityStateTracker<T> _entityStateTracker = new EntityStateTracker<T>(
             new EntityCopyBuilder<T>(), new EntityEqualityComparer<T>());
@@ -52,8 +52,19 @@ namespace CustomORM.OrmLogic
             MakeAndExecuteQueryForEachEntity(entitiesToDelete, _commandBuilder.GenerateDeleteCommand);
         }
 
-        public IEnumerator<T> GetEnumerator() => new DbEntitySetEnumerator<T>();
+        public IEnumerator<T> GetEnumerator()
+        {
+            var selectionQueryEntity = _commandBuilder.GenerateSelectCommand();
+            _command.CommandText = selectionQueryEntity.QueryText;
+            
+            if (selectionQueryEntity.CommandParams is not null)
+            {
+                _command.Parameters.AddRange((SqlParameter[]) selectionQueryEntity.CommandParams);
+            }
+            var reader = _command.ExecuteReader();
 
+            return new DbEntitySetEnumerator<T>(reader, _modelSerializer);
+        }
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
@@ -78,21 +89,11 @@ namespace CustomORM.OrmLogic
         {
             _entityStateTracker.RegisterEntitiesToAdd(entitiesToAdd);
         }
-
         
-        public T Find(int id)
-        {
-            throw new NotImplementedException();
-        }
-
-        public T Find(Guid id)
-        {
-            throw new NotImplementedException();
-        }
 
         public void Include(string nameOfIncludeProperty)
         {
-            throw new NotImplementedException();
+            _commandBuilder.GenerateNavigationalPropertyIncludeQuery(nameOfIncludeProperty);
         }
 
         public void Include<T2>(Expression<Func<T, T2>> expression)

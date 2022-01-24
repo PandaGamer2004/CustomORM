@@ -6,11 +6,10 @@ using System.Linq;
 using System.Reflection;
 using CustomORM.Attributes;
 using CustomORM.Exceptions;
+using CustomORM.Extensions;
 
 namespace CustomORM.OrmLogic
 {
-    //TODO OptimizeProperties
-    
     public class EntityInfo
     {
         private readonly EntityTypesMapper _typesMapper = EntityTypesMapper.Instance;
@@ -29,6 +28,10 @@ namespace CustomORM.OrmLogic
 
         internal EntityInfo(Type entityType)
         {
+            if (!entityType.IsEntityType())
+            {
+                throw new TypeNotContainsDefaultConstructorOrNotRef(nameof(entityType));
+            }
             _entityType = entityType;
             this.ConstructEntityInfo();
         }
@@ -56,6 +59,11 @@ namespace CustomORM.OrmLogic
             .Select(kv => kv.Key).FirstOrDefault()
                                           ?? throw new PrimaryKeyNotFoundException(nameof(_entityType));
 
+
+        public PropertyInfo? this[String propertyName]
+            => _propertiesAndTheirAttributes.Keys.FirstOrDefault(propInfo => propInfo.Name == propertyName)
+               ?? _foreignKeyAndTheirNavigationalProperties.Values.FirstOrDefault(propInfo =>
+                   propInfo.Name == propertyName);
 
         private void AddAllPropertyInfos(TypeInfo typeInfo)
         {
@@ -238,6 +246,9 @@ namespace CustomORM.OrmLogic
 
             throw new NotRelatedPropertyInfoToEntityException();
         }
+        
+        
+        
     }
 
 }

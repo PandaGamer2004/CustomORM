@@ -4,22 +4,31 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using CustomORM.Exceptions;
 using CustomORM.Interfaces;
 
 namespace CustomORM.OrmLogic
 {
     public class SimpleCommandBuilder<T> : ICommandBuilder<T> where T : class, new()
     {
-        private readonly EntityInfo _entityInfo = EntityInfoCollector.Instance.GetEntityInfoForType(typeof(T));
-        private const String DefaultSelectPattern = "{0} from [dbo].[{1}]";
+        private readonly EntityInfoCollector _entityInfoCollector = EntityInfoCollector.Instance;
+        private readonly EntityInfo _entityInfo;
+        private const String DefaultSelectPattern = "{0} from [{1}]";
         private const String DefaultSelectAllString = "SELECT " + DefaultSelectPattern;
         private const String DefaultSelectTopString = "SELECT TOP{2} " + DefaultSelectPattern;
-        private const String DefaultDeleteString = "DELETE FROM [dbo].[{0}]";
-        private const String DefaultInsertString = "INSERT INTO [dbo].[{0}]({1})";
+        private const String DefaultDeleteString = "DELETE FROM [{0}]";
+        private const String DefaultInsertString = "INSERT INTO [{0}]({1})";
+        private const String DefaultInnerJoinString = "INNER JOIN [{0}] ON";
         private const String WherePattern = "[{0}].[{1}] = {2}";
+        private const String InnerJoinOnPattern = "[{0}].[{1}] = [{2}].[{3}]";
         private const String DefaultUpdateString = "UPDATE [dbo].[{0}]";
-        
-        
+
+
+        public SimpleCommandBuilder()
+        {
+            _entityInfo = _entityInfoCollector.GetEntityInfoForType(typeof(T));
+        }
+
         private String GetInsertTemplate()
         {
             var sb = new StringBuilder();
@@ -30,11 +39,12 @@ namespace CustomORM.OrmLogic
             return sb.ToString();
         }
 
-        private IEnumerable<SqlParameter> GetSqlParamsForEntityProperties(IEnumerable<PropertyInfo> entityProperties, T entity)
+        private IEnumerable<SqlParameter> GetSqlParamsForEntityProperties(IEnumerable<PropertyInfo> entityProperties,
+            T entity)
         {
             var dbColumnNames = _entityInfo.GetDbColumnNamesFromPropertyInfos(entityProperties);
             var paramsNames = dbColumnNames.Select(name => "@" + name);
-            
+
             var sqlParameters = entityProperties.Zip(paramsNames,
                 (property, paramName) => new SqlParameter
                 {
@@ -84,14 +94,40 @@ namespace CustomORM.OrmLogic
             var sb = new StringBuilder();
             var columnNames = _entityInfo.GetDbColumnNamesFromPropertyInfos(_entityInfo.EntityProperties);
             sb.AppendFormat(DefaultSelectTopString, String.Join(", ", columnNames), _entityInfo.TableName, 1);
-            
+
             var pkParam = GetPkSqlParameterForEntity(id);
             var whereQueryPart = GetQueryPartFilteredOnPrimaryKey(pkParam);
             sb.AppendLine(whereQueryPart);
-            
+
             return new QueryEntity(sb.ToString(), new[] {pkParam});
         }
 
+        private String GetJoinOnClause(PropertyInfo propertyToInclude, EntityInfo navPropertyEntityInfo)
+        {
+            String? innerJoinOnString;
+            try
+            {
+                var foreignKeyForNavigationProperty = _entityInfo.GetForeignKeyForNavigationProperty(propertyToInclude);
+                innerJoinOnString = String.Format(InnerJoinOnPattern,
+                    _entityInfo.TableName,
+                    _entityInfo.GetDbColumnNameFromPropertyInfo(foreignKeyForNavigationProperty),
+                    navPropertyEntityInfo.TableName,
+                    navPropertyEntityInfo.GetDbColumnNameFromPropertyInfo(navPropertyEntityInfo.PrimaryKey));
+            }
+            catch (ForeignKeyNotFoundException)
+            {
+                var foreignKeyInNavProperty =
+                    navPropertyEntityInfo.GetForeignKeyForNavigationProperty(_entityInfo.PrimaryKey);
+
+                innerJoinOnString = String.Format(InnerJoinOnPattern,
+                    _entityInfo.TableName,
+                    _entityInfo.GetDbColumnNameFromPropertyInfo(_entityInfo.PrimaryKey),
+                    navPropertyEntityInfo.TableName,
+                    navPropertyEntityInfo.GetDbColumnNameFromPropertyInfo(foreignKeyInNavProperty));
+            }
+
+            return innerJoinOnString;
+        }
 
         public QueryEntity GenerateSelectCommand()
         {
@@ -109,7 +145,7 @@ namespace CustomORM.OrmLogic
         {
             return GenerateSelectCommandIdSearch(id);
         }
-        
+
 
         public QueryEntity GenerateInsertCommand(T entity)
         {
@@ -121,7 +157,7 @@ namespace CustomORM.OrmLogic
             var insertParams = GetSqlParamsForEntityProperties(entityProps, entity);
             var insertSection = GetValueSection(insertParams);
             sb.AppendLine(insertSection);
-            
+
             return new QueryEntity(sb.ToString(), insertParams);
         }
 
@@ -131,7 +167,7 @@ namespace CustomORM.OrmLogic
             var sb = new StringBuilder();
             sb.AppendFormat(DefaultUpdateString, _entityInfo.TableName);
             sb.AppendLine(" SET");
-            
+
             var propertiesToUpdate =
                 _entityInfo.EntityProperties.Except(new[] {_entityInfo.PrimaryKey});
             var updateSqlParams = GetSqlParamsForEntityProperties(propertiesToUpdate, entity);
@@ -147,7 +183,7 @@ namespace CustomORM.OrmLogic
             updateSqlParamsList.Add(pkSqlParam);
             var queryPartFilteredOnPrimaryKey = GetQueryPartFilteredOnPrimaryKey(pkSqlParam);
             sb.AppendLine(queryPartFilteredOnPrimaryKey);
-            
+
             return new QueryEntity(sb.ToString(),
                 updateSqlParamsList);
         }
@@ -163,6 +199,28 @@ namespace CustomORM.OrmLogic
             sb.AppendFormat(wherePart);
 
             return new QueryEntity(sb.ToString(), new[] {pkParam});
+        }
+
+        public QueryEntity GenerateNavigationalPropertyIncludeQuery(string nameOfIncludeProperty)
+        {
+            var propertyToInclude = _entityInfo[nameOfIncludeProperty];
+
+            if (propertyToInclude is null || !_entityInfo
+                .NavigationalProperties.Contains(propertyToInclude))
+            {
+                throw new NavigationalPropertyNotFoundException(nameOfIncludeProperty);
+            }
+
+            var navPropertyEntityInfo = _entityInfoCollector.GetEntityInfoForType(propertyToInclude.PropertyType);
+            var innerJoinOnClause = GetJoinOnClause(propertyToInclude, navPropertyEntityInfo);
+
+            var sb = new StringBuilder();
+            sb.AppendFormat(DefaultSelectAllString, navPropertyEntityInfo.EntityProperties, _entityInfo.TableName);
+            sb.AppendLine();
+            sb.AppendFormat(DefaultInnerJoinString, navPropertyEntityInfo.TableName);
+            sb.AppendLine(innerJoinOnClause);
+
+            return new QueryEntity(sb.ToString(), null);
         }
     }
 }
