@@ -10,21 +10,24 @@ namespace CustomORM.OrmLogic
 {
     public class SimpleCommandBuilder<T> : ICommandBuilder<T> where T : class, new()
     {
-        private EntityInfo _entityInfo = EntityInfoCollector.Instance.GetEntityInfoForType(typeof(T));
+        private readonly EntityInfo _entityInfo = EntityInfoCollector.Instance.GetEntityInfoForType(typeof(T));
         private const String DefaultSelectPattern = "{0} from [dbo].[{1}]";
         private const String DefaultSelectAllString = "SELECT " + DefaultSelectPattern;
         private const String DefaultSelectTopString = "SELECT TOP{2} " + DefaultSelectPattern;
-        private const String DefualtDeleteString = "DELETE FROM [dbo].[{0}]";
+        private const String DefaultDeleteString = "DELETE FROM [dbo].[{0}]";
         private const String DefaultInsertString = "INSERT INTO [dbo].[{0}]({1})";
         private const String WherePattern = "[{0}].[{1}] = {2}";
-        private static String DefaultUpdateString = "UPDATE [dbo].[{0}]";
-
-        private void AddToSbInsertTemplate(StringBuilder sb)
+        private const String DefaultUpdateString = "UPDATE [dbo].[{0}]";
+        
+        
+        private String GetInsertTemplate()
         {
+            var sb = new StringBuilder();
             var declaredEntityProperties = _entityInfo.EntityProperties;
             var dbColumnNames = _entityInfo.GetDbColumnNamesFromPropertyInfos(declaredEntityProperties);
             sb.AppendFormat(DefaultInsertString, _entityInfo.TableName, String.Join(", ", dbColumnNames));
             sb.AppendLine("VALUES");
+            return sb.ToString();
         }
 
         private IEnumerable<SqlParameter> GetSqlParamsForEntityProperties(IEnumerable<PropertyInfo> entityProperties, T entity)
@@ -43,16 +46,12 @@ namespace CustomORM.OrmLogic
             return sqlParameters;
         }
 
-        private IEnumerable<SqlParameter> AddToSbValueSection(StringBuilder sb, T entity)
+        private String GetValueSection(IEnumerable<SqlParameter> sqlParams)
         {
-            sb.AppendLine();
-            var declaredEntityProperties = _entityInfo.EntityProperties;
-            var sqlParameters = GetSqlParamsForEntityProperties(declaredEntityProperties, entity);
-            
-            sb.AppendFormat("({0})", String.Join(",", sqlParameters
+            var sb = new StringBuilder();
+            sb.AppendFormat("({0})", String.Join(",", sqlParams
                 .Select(parameter => parameter.ParameterName)));
-            
-            return sqlParameters;
+            return sb.ToString();
         }
 
         private SqlParameter GetPkSqlParameterForEntity<T2>(T2 pkValue)
@@ -110,14 +109,20 @@ namespace CustomORM.OrmLogic
         {
             return GenerateSelectCommandIdSearch(id);
         }
-
+        
 
         public QueryEntity GenerateInsertCommand(T entity)
         {
             var sb = new StringBuilder();
-            AddToSbInsertTemplate(sb);
-            IEnumerable<SqlParameter> sqlParameters = AddToSbValueSection(sb, entity);
-            return new QueryEntity(sb.ToString(), sqlParameters);
+            var insertTemplate = GetInsertTemplate();
+            sb.AppendLine(insertTemplate);
+
+            var entityProps = _entityInfo.EntityProperties;
+            var insertParams = GetSqlParamsForEntityProperties(entityProps, entity);
+            var insertSection = GetValueSection(insertParams);
+            sb.AppendLine(insertSection);
+            
+            return new QueryEntity(sb.ToString(), insertParams);
         }
 
 
@@ -150,16 +155,14 @@ namespace CustomORM.OrmLogic
 
         public QueryEntity GenerateDeleteCommand(T entity)
         {
-            //TODO WRITE DELETE COMMAND
             var sb = new StringBuilder();
-            sb.AppendFormat(DefualtDeleteString, _entityInfo.TableName);
-            sb.AppendLine("WHERE ");
-            sb.AppendFormat(WherePattern, _entityInfo.TableName,
-                _entityInfo.GetDbColumnNameFromPropertyInfo(_entityInfo.PrimaryKey)) ;
+            sb.AppendFormat(DefaultDeleteString, _entityInfo.TableName);
 
-            
-            //TODO PLEASE CHANGE FOR NULL MAKE THIS SHIT WORKS
-            return null;
+            var pkParam = GetPkSqlParameterForEntity(entity);
+            var wherePart = GetQueryPartFilteredOnPrimaryKey(pkParam);
+            sb.AppendFormat(wherePart);
+
+            return new QueryEntity(sb.ToString(), new[] {pkParam});
         }
     }
 }
