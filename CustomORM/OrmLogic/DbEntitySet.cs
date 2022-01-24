@@ -52,10 +52,7 @@ namespace CustomORM.OrmLogic
             MakeAndExecuteQueryForEachEntity(entitiesToDelete, _commandBuilder.GenerateDeleteCommand);
         }
 
-        public IEnumerator<T> GetEnumerator()
-        {
-            throw new NotImplementedException();
-        }
+        public IEnumerator<T> GetEnumerator() => new DbEntitySetEnumerator<T>();
 
         IEnumerator IEnumerable.GetEnumerator()
         {
