@@ -102,11 +102,11 @@ namespace CustomORM.OrmLogic
         }
 
         private object GetNavigationalPropertyToIncludeValue(Type entitiesToIncludeType,
-            PropertyInfo navigationalPropertyForEntityToInclude, EntityTrackingItem<T>? trackedEntity)
+            PropertyInfo navigationalPropertyForEntityToInclude, EntityTrackingItem<T> trackingItem)
         {
             var navigationalPropsToSetIncludedValue =
                 _currentEntityInfo.GetPropertyValueForEntity(navigationalPropertyForEntityToInclude,
-                    trackedEntity);
+                    trackingItem.TrackedEntity);
             if (navigationalPropsToSetIncludedValue is null)
             {
                 var listType = typeof(List<>);
@@ -116,7 +116,7 @@ namespace CustomORM.OrmLogic
 
                 _currentEntityInfo.SetValueForProperty(navigationalPropertyForEntityToInclude,
                     listOfEntitiesToInclude
-                    , trackedEntity);
+                    , trackingItem.TrackedEntity);
 
                 navigationalPropsToSetIncludedValue = listOfEntitiesToInclude;
             }
@@ -125,11 +125,11 @@ namespace CustomORM.OrmLogic
         }
 
         private List<object> GetEntitiesToIncludeForTracked(List<object> entitiesToIncludeList,
-            EntityTrackingItem<T> trackedEntity,
+            EntityTrackingItem<T> trackedEntityItem,
             EntityInfo entityToIncludeInfo, PropertyInfo foreignKeyPropertyInfo)
         {
             var trackedEntityPkValue = _currentEntityInfo.GetPropertyValueForEntity(_currentEntityInfo.PrimaryKey,
-                trackedEntity);
+                trackedEntityItem.TrackedEntity);
 
             var entitiesToSetNavigationalPropertyForTrackedEntity
                 = entitiesToIncludeList.FindAll(entityToInclude =>
@@ -137,7 +137,7 @@ namespace CustomORM.OrmLogic
                     var foreignKeyValue = entityToIncludeInfo
                         .GetPropertyValueForEntity(foreignKeyPropertyInfo, entityToInclude);
 
-                    return foreignKeyValue == trackedEntityPkValue;
+                    return foreignKeyValue.Equals(trackedEntityPkValue);
                 });
             return entitiesToSetNavigationalPropertyForTrackedEntity;
         }

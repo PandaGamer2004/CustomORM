@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Linq.Expressions;
 using CustomORM.EventArgsObjects;
 using CustomORM.Exceptions;
 using CustomORM.Extensions;

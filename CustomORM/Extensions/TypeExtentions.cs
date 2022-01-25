@@ -17,8 +17,7 @@ namespace CustomORM.Extensions
         public static Type GetRealTypeFromNavigationalPropertyType(this Type navPropertyType)
         {
             if (typeof(IEnumerable).IsAssignableFrom(navPropertyType) 
-                && navPropertyType.IsGenericType && navPropertyType.GetGenericArguments().Length == 1
-                && navPropertyType.GetGenericArguments()[0].IsValueType)
+                && navPropertyType.IsGenericType && navPropertyType.GetGenericArguments().Length == 1)
             {
                 return navPropertyType.GetGenericArguments()[0];
             }
