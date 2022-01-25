@@ -103,6 +103,7 @@ namespace CustomORM.OrmLogic
             catch (Exception ex)
             {
                 _currentTransaction.Rollback();
+                throw;
             }
             
             _currentTransaction.Commit();

@@ -15,15 +15,15 @@ namespace CustomORM.OrmLogic
     {
         public DbEntitySet(SqlCommand command)
         {
-            _command = command;
+            _selectCommand = command;
             _entityInfo = _entityInfoCollector.GetEntityInfoForType(typeof(T));
         }
         
-        private SqlCommand _command;
+        private SqlCommand _selectCommand;
+        private SqlCommand? _transactionCommand;
         private readonly ICommandBuilder<T> _commandBuilder = new SimpleCommandBuilder<T>();
         private readonly IModelSerializer _modelSerializer = new ModelSerializer(typeof(T));
-
-        private readonly IEntityStateTracker<T> _entityStateTracker = new EntityStateTracker<T>(
+        private IEntityStateTracker<T> _entityStateTracker = new EntityStateTracker<T>(
             new EntityCopyBuilder<T>(), new EntityEqualityComparer<T>());
 
         private readonly EntityInfoCollector _entityInfoCollector = EntityInfoCollector.Instance;
@@ -32,17 +32,22 @@ namespace CustomORM.OrmLogic
 
         private void MakeAndExecuteQueryForEachEntity(IEnumerable<T> entities, Func<T, QueryEntity> queryBuilder)
         {
+            if (_transactionCommand is null)
+            {
+                throw new CanNotMakeDbUpdatesWhenCurrentTransactionNullException();
+            }
+            
             foreach (var entityToInsert in entities)
             {
                 var queryEntityForInsert = queryBuilder(entityToInsert);
-                _command.CommandText = queryEntityForInsert.QueryText;
+                _transactionCommand.CommandText = queryEntityForInsert.QueryText;
 
                 if (queryEntityForInsert.CommandParams is not null)
                 {
-                    _command.Parameters.AddRange((SqlParameter[]) queryEntityForInsert.CommandParams);
+                    _transactionCommand.Parameters.AddRange((SqlParameter[]) queryEntityForInsert.CommandParams);
                 }
 
-                _command.ExecuteNonQuery();
+                _transactionCommand.ExecuteNonQuery();
             }
         }
 
@@ -62,13 +67,13 @@ namespace CustomORM.OrmLogic
         public IEnumerator<T> GetEnumerator()
         {
             var selectionQueryEntity = _commandBuilder.GenerateSelectCommand();
-            _command.CommandText = selectionQueryEntity.QueryText;
+            _selectCommand.CommandText = selectionQueryEntity.QueryText;
             
             if (selectionQueryEntity.CommandParams is not null)
             {
-                _command.Parameters.AddRange((SqlParameter[]) selectionQueryEntity.CommandParams);
+                _selectCommand.Parameters.AddRange((SqlParameter[]) selectionQueryEntity.CommandParams);
             }
-            var reader = _command.ExecuteReader();
+            var reader = _selectCommand.ExecuteReader();
 
             return new DbEntitySetEnumerator<T>(reader, _modelSerializer, _entityStateTracker);
         }
@@ -111,14 +116,14 @@ namespace CustomORM.OrmLogic
             var includeQueryEntity = _commandBuilder.GenerateNavigationalPropertyIncludeQuery(propertyToInclude);
             if (includeQueryEntity.CommandParams is not null)
             {
-                _command.Parameters.AddRange((SqlParameter[]) includeQueryEntity.CommandParams);
+                _selectCommand.Parameters.AddRange((SqlParameter[]) includeQueryEntity.CommandParams);
             }
             
-            _command.CommandText = includeQueryEntity.QueryText;
+            _selectCommand.CommandText = includeQueryEntity.QueryText;
             List<Object> entitiesToInclude = new();
             var includeEntityModelSerializer = new ModelSerializer(propertyToInclude.PropertyType);
                 
-            using var reader = _command.ExecuteReader();
+            using var reader = _selectCommand.ExecuteReader();
             if (reader.HasRows)
             {
                 while (reader.Read())
@@ -131,16 +136,14 @@ namespace CustomORM.OrmLogic
             
         }
 
-        public void Include<T2>(Expression<Func<T, T2>> expression)
-        {
-            throw new NotImplementedException();
-        }
-
-
+        
         public void SetCurrentCommand(Object sender, CommandEventArgs commandEventArgs)
         {
-            _command = commandEventArgs.Command;
+            _transactionCommand = commandEventArgs.Command;
             this.ChangeEntitiesInDb();
+            _entityStateTracker =
+                new EntityStateTracker<T>(new EntityCopyBuilder<T>(), new EntityEqualityComparer<T>());
+            _transactionCommand = null;
         }
     }
 }

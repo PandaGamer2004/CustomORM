@@ -12,7 +12,6 @@ namespace CustomORM.Interfaces
         void RemoveEntitiesRange(params T[] entitiesToRemove);
         void AddRangeEntities(params T[] entitiesToAdd);
         void Include(String nameOfIncludeProperty);
-        void Include<T2>(Expression<Func<T, T2>> expression);
         void SetCurrentCommand(Object sender, CommandEventArgs cm);
     }
 }
