@@ -42,6 +42,7 @@ namespace CustomORM.OrmLogic
             var notEqualNavigationalPropertiesList = notEqualNavigationalProperties.ToList();
             ChangeEntityForeignKeyForNotEqualNavProps(notEqualNavigationalPropertiesList);
 
+            var equalEntityProps = _comparer.CheckEntityPropertiesEqual(_entityThatTracked, _entityOnTrackedCopy);
             if (notEqualNavigationalPropertiesList.Count != 0 
                 || !_comparer.CheckEntityPropertiesEqual(_entityThatTracked, _entityOnTrackedCopy))
             {

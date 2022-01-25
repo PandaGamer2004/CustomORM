@@ -141,10 +141,23 @@ namespace CustomORM.OrmLogic
 
             _tableName = tableNameAttribute?.TableName ?? _entityType.Name;
         }
+        
+        
+
+        private bool CheckPropertyRelatedWithEntity(PropertyInfo propertyInfo)
+        {
+            return _propertiesAndTheirAttributes.ContainsKey(propertyInfo) ||
+                   _allNavigationalPropertyInfos.Contains(propertyInfo);
+        }
+
+        private bool CheckPropertyIsNotNavigationalProperty(PropertyInfo propertyInfo)
+        {
+            return _propertiesAndTheirAttributes.ContainsKey(propertyInfo);
+        }
 
         public String GetDbColumnNameFromPropertyInfo(PropertyInfo pr)
         {
-            if (_propertiesAndTheirAttributes.ContainsKey(pr))
+            if (CheckPropertyRelatedWithEntity(pr) & CheckPropertyIsNotNavigationalProperty(pr))
             {
                 return ((DbColumnNameAttribute?)_propertiesAndTheirAttributes[pr]
                     .FirstOrDefault(atr => atr is DbColumnNameAttribute))?.ColumnName ?? pr.Name;
@@ -180,7 +193,7 @@ namespace CustomORM.OrmLogic
                 throw new ArgumentNullException(nameof(target));
             }
 
-            if (_propertiesAndTheirAttributes.ContainsKey(pr))
+            if (CheckPropertyRelatedWithEntity(pr))
             {
                 var resValue = pr.GetValue(target);
                 return resValue;
@@ -204,15 +217,14 @@ namespace CustomORM.OrmLogic
 
             if (target is null)
             {
-                throw new ArgumentNullException(nameof(entityProperty));
+                throw new ArgumentNullException(nameof(target));
             }
 
-            if (_propertiesAndTheirAttributes.ContainsKey(entityProperty))
-            {
-                entityProperty.SetValue(target, value);
-            }
-
-            throw new NotRelatedPropertyInfoToEntityException();
+            if (!CheckPropertyRelatedWithEntity(entityProperty)) 
+                throw new NotRelatedPropertyInfoToEntityException();
+                
+            entityProperty.SetValue(target, value);
+            
         }
 
         
@@ -244,7 +256,7 @@ namespace CustomORM.OrmLogic
 
             var propertyType = propertyInfo.PropertyType;
             
-            if (_propertiesAndTheirAttributes.ContainsKey(propertyInfo))
+            if (CheckPropertyRelatedWithEntity(propertyInfo) && CheckPropertyIsNotNavigationalProperty(propertyInfo))
             {
                 var propertyAttrs = _propertiesAndTheirAttributes[propertyInfo];
                 var columnTypeAttribute = 

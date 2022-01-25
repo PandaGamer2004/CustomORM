@@ -17,7 +17,7 @@ namespace CustomORM.OrmLogic
         private bool _isDisposed = false;
         public DbSession(String connectionString)
         {
-            _currentConnection = new SqlConnection();
+            _currentConnection = new SqlConnection(connectionString);
             RegisterAllDerivedDbSets();
             _currentConnection.Open();
         }
@@ -97,7 +97,7 @@ namespace CustomORM.OrmLogic
             try
             {
                 this.OnSetCommandToDerivedDbSets(eventArgs);
-                
+
                 _currentTransaction.Commit();
             }
             catch (Exception ex)
@@ -105,8 +105,6 @@ namespace CustomORM.OrmLogic
                 _currentTransaction.Rollback();
                 throw;
             }
-            
-            _currentTransaction.Commit();
         }
          
         public void Dispose()

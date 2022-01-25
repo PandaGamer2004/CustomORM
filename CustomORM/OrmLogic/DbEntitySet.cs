@@ -6,6 +6,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using CustomORM.EventArgsObjects;
 using CustomORM.Exceptions;
+using CustomORM.Extensions;
 using CustomORM.Interfaces;
 
 namespace CustomORM.OrmLogic
@@ -41,13 +42,9 @@ namespace CustomORM.OrmLogic
             {
                 var queryEntityForInsert = queryBuilder(entityToInsert);
                 _transactionCommand.CommandText = queryEntityForInsert.QueryText;
-
-                if (queryEntityForInsert.CommandParams is not null)
-                {
-                    _transactionCommand.Parameters.AddRange((SqlParameter[]) queryEntityForInsert.CommandParams);
-                }
-
+                _transactionCommand.AddParamsList(queryEntityForInsert.CommandParams);
                 _transactionCommand.ExecuteNonQuery();
+                
             }
         }
 
@@ -68,11 +65,8 @@ namespace CustomORM.OrmLogic
         {
             var selectionQueryEntity = _commandBuilder.GenerateSelectCommand();
             _selectCommand.CommandText = selectionQueryEntity.QueryText;
+            _selectCommand.AddParamsList(selectionQueryEntity.CommandParams);
             
-            if (selectionQueryEntity.CommandParams is not null)
-            {
-                _selectCommand.Parameters.AddRange((SqlParameter[]) selectionQueryEntity.CommandParams);
-            }
             var reader = _selectCommand.ExecuteReader();
 
             return new DbEntitySetEnumerator<T>(reader, _modelSerializer, _entityStateTracker);
@@ -84,21 +78,25 @@ namespace CustomORM.OrmLogic
 
         public void AddEntity(T entity)
         {
+            if (entity is null) throw new ArgumentNullException(nameof(entity));
             _entityStateTracker.RegisterEntityToAdd(entity);
         }
 
         public void RemoveEntity(T entityToRemove)
         {
+            if (entityToRemove is null) throw new ArgumentNullException(nameof(entityToRemove));
             _entityStateTracker.RegisterEntityToDelete(entityToRemove);
         }
 
         public void RemoveEntitiesRange(params T[] entitiesToRemove)
         {
+            if (entitiesToRemove is null) throw new ArgumentNullException(nameof(entitiesToRemove));
             _entityStateTracker.RegisterEntitiesToDelete(entitiesToRemove);
         }
 
         public void AddRangeEntities(params T[] entitiesToAdd)
         {
+            if (entitiesToAdd is null) throw new ArgumentNullException(nameof(entitiesToAdd));
             _entityStateTracker.RegisterEntitiesToAdd(entitiesToAdd);
         }
         
@@ -114,14 +112,13 @@ namespace CustomORM.OrmLogic
             }
             
             var includeQueryEntity = _commandBuilder.GenerateNavigationalPropertyIncludeQuery(propertyToInclude);
-            if (includeQueryEntity.CommandParams is not null)
-            {
-                _selectCommand.Parameters.AddRange((SqlParameter[]) includeQueryEntity.CommandParams);
-            }
-            
             _selectCommand.CommandText = includeQueryEntity.QueryText;
+            _selectCommand.AddParamsList(includeQueryEntity.CommandParams);
+            
             List<Object> entitiesToInclude = new();
-            var includeEntityModelSerializer = new ModelSerializer(propertyToInclude.PropertyType);
+
+            var entityToIncludeType = propertyToInclude.PropertyType.GetRealTypeFromNavigationalPropertyType();
+            var includeEntityModelSerializer = new ModelSerializer(entityToIncludeType);
                 
             using var reader = _selectCommand.ExecuteReader();
             if (reader.HasRows)

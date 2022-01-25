@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using CustomORM.Exceptions;
+using CustomORM.Extensions;
 using CustomORM.Interfaces;
 
 namespace CustomORM.OrmLogic
@@ -70,7 +71,7 @@ namespace CustomORM.OrmLogic
         {
             var pkColumnName = _entityInfo.GetDbColumnNameFromPropertyInfo(_entityInfo.PrimaryKey);
             var paramName = $"@{pkColumnName}";
-            var resultParam = new SqlParameter()
+            var resultParam = new SqlParameter
             {
                 ParameterName = paramName,
                 Value = pkValue,
@@ -182,11 +183,19 @@ namespace CustomORM.OrmLogic
                 _entityInfo.EntityProperties.Except(new[] {_entityInfo.PrimaryKey});
             var updateSqlParams = GetSqlParamsForEntityProperties(propertiesToUpdate, entity);
             var updateSqlParamsList = updateSqlParams.ToList();
-            foreach (var sqlParam in updateSqlParamsList)
+            
+            for (var i = 0; i< updateSqlParamsList.Count; i++)
             {
-                sb.AppendLine($"{sqlParam.ParameterName[1..]} = " +
-                              $"{sqlParam.ParameterName},");
+                var sqlParam = updateSqlParamsList[i];
+                sb.Append($"{sqlParam.ParameterName[1..]} = " +
+                              $"{sqlParam.ParameterName}");
+                if (i != updateSqlParamsList.Count - 1)
+                {
+                    sb.AppendLine(",");
+                }
             }
+
+            sb.AppendLine();
 
             var pkValue = _entityInfo.GetPropertyValueForEntity(_entityInfo.PrimaryKey, entity);
             var pkSqlParam = GetPkSqlParameterForEntity(pkValue);
@@ -204,7 +213,8 @@ namespace CustomORM.OrmLogic
             var sb = new StringBuilder();
             sb.AppendFormat(DefaultDeleteString, _entityInfo.TableName);
 
-            var pkParam = GetPkSqlParameterForEntity(entity);
+            var pkValue = _entityInfo.GetPropertyValueForEntity(_entityInfo.PrimaryKey, entity);
+            var pkParam = GetPkSqlParameterForEntity(pkValue);
             var wherePart = GetQueryPartFilteredOnPrimaryKey(pkParam);
             sb.AppendLine();
             sb.Append(wherePart);
@@ -215,8 +225,7 @@ namespace CustomORM.OrmLogic
         public QueryEntity GenerateNavigationalPropertyIncludeQuery(PropertyInfo propertyToInclude)
         {
             Type propertyType;
-            propertyType = typeof(IEnumerable).IsAssignableFrom(propertyToInclude.PropertyType) ?
-                propertyToInclude.PropertyType.GetGenericArguments()[0] : propertyToInclude.PropertyType;
+            propertyType = propertyToInclude.PropertyType.GetRealTypeFromNavigationalPropertyType();
             
             var navPropertyEntityInfo = _entityInfoCollector.GetEntityInfoForType(propertyType);
             var innerJoinOnClause = GetJoinOnClause(propertyToInclude, navPropertyEntityInfo);
@@ -224,7 +233,7 @@ namespace CustomORM.OrmLogic
             var sb = new StringBuilder();
 
             var selectColumnNamesForIncludingProperty = navPropertyEntityInfo.GetDbColumnNamesFromPropertyInfos(
-                navPropertyEntityInfo.EntityProperties);
+                navPropertyEntityInfo.EntityProperties).Select(name => $"[{navPropertyEntityInfo.TableName}].{name}");
             sb.AppendFormat(DefaultSelectAllString,String.Join(",", selectColumnNamesForIncludingProperty), _entityInfo.TableName);
             sb.AppendLine();
             sb.AppendFormat(DefaultInnerJoinString, navPropertyEntityInfo.TableName);

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 using System.Reflection;
 using CustomORM.Extensions;
@@ -47,8 +46,8 @@ namespace CustomORM.OrmLogic
 
                 return !CheckIsEnumerable(prop)
                        && !CheckBothNull(trackedEntityValue, copiedEntityValue)
-                       && CheckOneNullAndOtherNot(trackedEntityValue, copiedEntityValue)
-                       || !CheckPropertyValuesEqual(trackedEntityValue!, copiedEntityValue!);
+                       && (CheckOneNullAndOtherNot(trackedEntityValue, copiedEntityValue)
+                       || !CheckPropertyValuesEqual(trackedEntityValue!, copiedEntityValue!));
             });
         }
 
@@ -60,9 +59,9 @@ namespace CustomORM.OrmLogic
                 var trackedEntityValue = _entityInfo.GetPropertyValueForEntity(property, trackedEntity);
                 var copiedEntityValue = _entityInfo.GetPropertyValueForEntity(property, copiedEntity);
                 return CheckBothNull(trackedEntityValue, copiedEntityValue)
-                       || !CheckOneNullAndOtherNot(trackedEntity, copiedEntity)
-                       && (CheckIsArray(property) && CheckArraysAreEqual(trackedEntity, copiedEntity)
-                           || CheckPropertyValuesEqual(trackedEntity, copiedEntity));
+                       || !CheckOneNullAndOtherNot(trackedEntityValue, copiedEntityValue)
+                       && (CheckIsArray(property) && CheckArraysAreEqual(trackedEntityValue, copiedEntityValue)
+                           || CheckPropertyValuesEqual(trackedEntityValue, copiedEntityValue));
             });
         }
     }

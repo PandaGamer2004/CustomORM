@@ -23,6 +23,7 @@ namespace CustomORM.OrmLogic
         public void AddIncludedEntities(List<EntityTrackingItem<T>>
             trackingItemsForInclude)
         {
+            if(trackingItemsForInclude.Count == 0) return;
             var navigationalProperties = _currentEntityInfo.NavigationalProperties.ToList();
             
             navigationalProperties.ForEach(navigationalProperty =>
@@ -150,17 +151,23 @@ namespace CustomORM.OrmLogic
 
             var foreignKeyProperty = _currentEntityInfo.GetForeignKeyForNavigationProperty(navigationalProp);
 
-            foreach (var entityToInclude in entitiesToIncludeList)
+            foreach (var trackingItemToInclude in trackingItemsForInclude)
             {
-                var trackedEntityMatched = trackingItemsForInclude.Find(item =>
+                var matchedEntityToInclude = entitiesToIncludeList.Find(entity =>
                 {
-                    var trackedEntity = item.TrackedEntity;
-                    return _currentEntityInfo.GetPropertyValueForEntity(foreignKeyProperty, trackedEntity)
-                           == entityToIncludeInfo.GetPropertyValueForEntity(
-                               entityToIncludeInfo.PrimaryKey, entityToInclude);
+                    var trackedEntity = trackingItemToInclude.TrackedEntity;
+                    var foreignKeyValue =
+                        _currentEntityInfo.GetPropertyValueForEntity(foreignKeyProperty, trackedEntity);
+                    var primaryKeyValue = entityToIncludeInfo.GetPropertyValueForEntity(
+                        entityToIncludeInfo.PrimaryKey, entity);
+
+                    return foreignKeyValue?.Equals(primaryKeyValue) ?? false;
                 });
 
-                entityToIncludeInfo.SetValueForProperty(navigationalProp, entityToInclude, trackedEntityMatched);
+                if(matchedEntityToInclude is null) continue;
+                
+                _currentEntityInfo
+                    .SetValueForProperty(navigationalProp, matchedEntityToInclude,trackingItemToInclude.TrackedEntity);
             }
         }
     }
