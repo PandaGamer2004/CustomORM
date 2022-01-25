@@ -18,8 +18,8 @@ namespace CustomORM.OrmLogic
         public DbSession(String connectionString)
         {
             _currentConnection = new SqlConnection();
-            _currentConnection.Open();
             RegisterAllDerivedDbSets();
+            _currentConnection.Open();
         }
         
         public event EventHandler<CommandEventArgs> SetCommandToDerivedDbSets;
