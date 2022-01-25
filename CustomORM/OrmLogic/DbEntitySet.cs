@@ -70,7 +70,7 @@ namespace CustomORM.OrmLogic
             }
             var reader = _command.ExecuteReader();
 
-            return new DbEntitySetEnumerator<T>(reader, _modelSerializer);
+            return new DbEntitySetEnumerator<T>(reader, _modelSerializer, _entityStateTracker);
         }
         IEnumerator IEnumerable.GetEnumerator()
         {

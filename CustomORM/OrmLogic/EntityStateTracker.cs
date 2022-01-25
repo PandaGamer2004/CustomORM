@@ -27,6 +27,10 @@ namespace CustomORM.OrmLogic
         {
             var trackingItem = new EntityTrackingItem<T>(entity, state, _entityEqualityComparer, _entityCopyBuilder);
             _trackedEntities.Add(trackingItem);
+            _entityIncludingProvider.AddIncludedEntities(new List<EntityTrackingItem<T>>()
+            {
+                trackingItem
+            });
         }
 
         public void StartTracking(T entity)
@@ -109,6 +113,7 @@ namespace CustomORM.OrmLogic
         public void RegisterIncludedEntities(List<object> entitiesToInclude)
         {
             _entityIncludingProvider.RegisterEntitiesForInclude(entitiesToInclude);
+            _entityIncludingProvider.AddIncludedEntities(_trackedEntities);
         }
     }
 }
