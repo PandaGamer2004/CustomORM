@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -21,7 +22,7 @@ namespace CustomORM.OrmLogic
         private readonly Dictionary<PropertyInfo, PropertyInfo> _foreignKeyAndTheirNavigationalProperties
             = new();
 
-        
+        private readonly List<PropertyInfo> _allNavigationalPropertyInfos = new();
 
 
         private String? _tableName;
@@ -51,7 +52,7 @@ namespace CustomORM.OrmLogic
         }
 
         
-        public IEnumerable<PropertyInfo> NavigationalProperties => _foreignKeyAndTheirNavigationalProperties.Values;
+        public IEnumerable<PropertyInfo> NavigationalProperties => _allNavigationalPropertyInfos;
         public IEnumerable<PropertyInfo> EntityProperties => _propertiesAndTheirAttributes.Keys;
 
         public PropertyInfo PrimaryKey => _propertiesAndTheirAttributes
@@ -62,7 +63,7 @@ namespace CustomORM.OrmLogic
 
         public PropertyInfo? this[String propertyName]
             => _propertiesAndTheirAttributes.Keys.FirstOrDefault(propInfo => propInfo.Name == propertyName)
-               ?? _foreignKeyAndTheirNavigationalProperties.Values.FirstOrDefault(propInfo =>
+               ?? _allNavigationalPropertyInfos.FirstOrDefault(propInfo =>
                    propInfo.Name == propertyName);
 
         private void AddAllPropertyInfos(TypeInfo typeInfo)
@@ -96,7 +97,7 @@ namespace CustomORM.OrmLogic
 
         private void RemoveNavigationalPropertiesFromAll()
         {
-            foreach (var propertyInfo in _foreignKeyAndTheirNavigationalProperties.Values)
+            foreach (var propertyInfo in _allNavigationalPropertyInfos)
             {
                 _propertiesAndTheirAttributes.Remove(propertyInfo);
             }
@@ -107,14 +108,26 @@ namespace CustomORM.OrmLogic
         {
             foreach (var (property, attrList) in _propertiesAndTheirAttributes)
             {
+                PropertyInfo? navigationalProperty = null;
                 var foreignKey = (ForeignKeyAttribute?) attrList.FirstOrDefault(attr => attr is ForeignKeyAttribute);
                 if (foreignKey is not null)
                 {
-                    var navigationalProperty = _propertiesAndTheirAttributes.Keys.FirstOrDefault(propertyInfo =>
+                    navigationalProperty = _propertiesAndTheirAttributes.Keys.FirstOrDefault(propertyInfo =>
                         propertyInfo.Name == foreignKey.PropertyName);
 
-                    _foreignKeyAndTheirNavigationalProperties[property] = navigationalProperty 
-                                                                          ?? throw new NotFoundPropertyForForeignKeyException();
+                    _foreignKeyAndTheirNavigationalProperties[property] = navigationalProperty ??
+                                                                          throw new NotFoundPropertyForForeignKeyException();
+                }
+                else if(typeof(IEnumerable).IsAssignableFrom(property.PropertyType)
+                        && property.PropertyType.IsGenericType
+                        && !property.PropertyType.GetGenericArguments()[0].IsValueType)
+                {
+                    navigationalProperty = property;
+                }
+
+                if (navigationalProperty is not null)
+                {
+                    _allNavigationalPropertyInfos.Add(navigationalProperty);
                 }
             }
         }
@@ -229,7 +242,7 @@ namespace CustomORM.OrmLogic
                 throw new ArgumentNullException(nameof(propertyInfo));
             }
 
-            var propertyType = propertyInfo.GetType();
+            var propertyType = propertyInfo.PropertyType;
             
             if (_propertiesAndTheirAttributes.ContainsKey(propertyInfo))
             {

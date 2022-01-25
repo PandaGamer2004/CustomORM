@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
@@ -35,7 +36,8 @@ namespace CustomORM.OrmLogic
             var declaredEntityProperties = _entityInfo.EntityProperties;
             var dbColumnNames = _entityInfo.GetDbColumnNamesFromPropertyInfos(declaredEntityProperties);
             sb.AppendFormat(DefaultInsertString, _entityInfo.TableName, String.Join(", ", dbColumnNames));
-            sb.AppendLine("VALUES");
+            sb.AppendLine();
+            sb.Append("VALUES");
             return sb.ToString();
         }
 
@@ -49,7 +51,7 @@ namespace CustomORM.OrmLogic
                 (property, paramName) => new SqlParameter
                 {
                     SqlDbType = _entityInfo.GetDbTypeForGivenProperty(property),
-                    Value = _entityInfo.GetPropertyValueForEntity(property, entity),
+                    Value = _entityInfo.GetDbColumnValueForEntity(property, entity),
                     ParameterName = paramName
                 });
 
@@ -105,25 +107,30 @@ namespace CustomORM.OrmLogic
         private String GetJoinOnClause(PropertyInfo propertyToInclude, EntityInfo navPropertyEntityInfo)
         {
             String? innerJoinOnString;
-            try
+            if(typeof(IEnumerable).IsAssignableFrom(propertyToInclude.PropertyType))
             {
-                var foreignKeyForNavigationProperty = _entityInfo.GetForeignKeyForNavigationProperty(propertyToInclude);
-                innerJoinOnString = String.Format(InnerJoinOnPattern,
-                    _entityInfo.TableName,
-                    _entityInfo.GetDbColumnNameFromPropertyInfo(foreignKeyForNavigationProperty),
-                    navPropertyEntityInfo.TableName,
-                    navPropertyEntityInfo.GetDbColumnNameFromPropertyInfo(navPropertyEntityInfo.PrimaryKey));
-            }
-            catch (ForeignKeyNotFoundException)
-            {
-                var foreignKeyInNavProperty =
-                    navPropertyEntityInfo.GetForeignKeyForNavigationProperty(_entityInfo.PrimaryKey);
+                var fkNavProperty = navPropertyEntityInfo.NavigationalProperties.
+                    FirstOrDefault(info => info.PropertyType == typeof(T));
 
+                if (fkNavProperty is null)
+                    throw new DbIntegrityException("No navigational Property for related enities" + nameof(T));
+                
+                var fkProperty = navPropertyEntityInfo.GetForeignKeyForNavigationProperty(fkNavProperty);
+                
                 innerJoinOnString = String.Format(InnerJoinOnPattern,
                     _entityInfo.TableName,
                     _entityInfo.GetDbColumnNameFromPropertyInfo(_entityInfo.PrimaryKey),
                     navPropertyEntityInfo.TableName,
-                    navPropertyEntityInfo.GetDbColumnNameFromPropertyInfo(foreignKeyInNavProperty));
+                    navPropertyEntityInfo.GetDbColumnNameFromPropertyInfo(fkProperty));
+            }
+            else
+            {
+                var fkProperty = _entityInfo.GetForeignKeyForNavigationProperty(propertyToInclude);
+                innerJoinOnString = String.Format(InnerJoinOnPattern,
+                    _entityInfo.TableName,
+                    _entityInfo.GetDbColumnNameFromPropertyInfo(fkProperty),
+                    navPropertyEntityInfo.TableName,
+                    navPropertyEntityInfo.GetDbColumnNameFromPropertyInfo(navPropertyEntityInfo.PrimaryKey));
             }
 
             return innerJoinOnString;
@@ -132,7 +139,9 @@ namespace CustomORM.OrmLogic
         public QueryEntity GenerateSelectCommand()
         {
             var sb = new StringBuilder();
-            sb.AppendFormat(DefaultSelectAllString, _entityInfo.EntityProperties, _entityInfo.TableName);
+            sb.AppendFormat(DefaultSelectAllString, String.Join(",",
+                _entityInfo.GetDbColumnNamesFromPropertyInfos(_entityInfo.EntityProperties)),
+                _entityInfo.TableName);
             return new QueryEntity(sb.ToString(), null);
         }
 
@@ -166,7 +175,8 @@ namespace CustomORM.OrmLogic
         {
             var sb = new StringBuilder();
             sb.AppendFormat(DefaultUpdateString, _entityInfo.TableName);
-            sb.AppendLine(" SET");
+            sb.AppendLine();
+            sb.Append("SET ");
 
             var propertiesToUpdate =
                 _entityInfo.EntityProperties.Except(new[] {_entityInfo.PrimaryKey});
@@ -196,20 +206,29 @@ namespace CustomORM.OrmLogic
 
             var pkParam = GetPkSqlParameterForEntity(entity);
             var wherePart = GetQueryPartFilteredOnPrimaryKey(pkParam);
-            sb.AppendFormat(wherePart);
+            sb.AppendLine();
+            sb.Append(wherePart);
 
             return new QueryEntity(sb.ToString(), new[] {pkParam});
         }
 
         public QueryEntity GenerateNavigationalPropertyIncludeQuery(PropertyInfo propertyToInclude)
         {
-            var navPropertyEntityInfo = _entityInfoCollector.GetEntityInfoForType(propertyToInclude.PropertyType);
+            Type propertyType;
+            propertyType = typeof(IEnumerable).IsAssignableFrom(propertyToInclude.PropertyType) ?
+                propertyToInclude.PropertyType.GetGenericArguments()[0] : propertyToInclude.PropertyType;
+            
+            var navPropertyEntityInfo = _entityInfoCollector.GetEntityInfoForType(propertyType);
             var innerJoinOnClause = GetJoinOnClause(propertyToInclude, navPropertyEntityInfo);
 
             var sb = new StringBuilder();
-            sb.AppendFormat(DefaultSelectAllString, navPropertyEntityInfo.EntityProperties, _entityInfo.TableName);
+
+            var selectColumnNamesForIncludingProperty = navPropertyEntityInfo.GetDbColumnNamesFromPropertyInfos(
+                navPropertyEntityInfo.EntityProperties);
+            sb.AppendFormat(DefaultSelectAllString,String.Join(",", selectColumnNamesForIncludingProperty), _entityInfo.TableName);
             sb.AppendLine();
             sb.AppendFormat(DefaultInnerJoinString, navPropertyEntityInfo.TableName);
+            sb.Append(" ");
             sb.AppendLine(innerJoinOnClause);
 
             return new QueryEntity(sb.ToString(), null);

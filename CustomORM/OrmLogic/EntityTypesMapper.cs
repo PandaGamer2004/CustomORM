@@ -32,14 +32,13 @@ namespace CustomORM.OrmLogic
                 {typeof(Guid), SqlDbType.UniqueIdentifier}
             };
 
+        
         private EntityTypesMapper()
         {
             //Final init Type dictionary
             _typeNamesAndDbTypes.Add("rowversion", SqlDbType.Timestamp);
             _typeNamesAndDbTypes.Add("numeric", SqlDbType.Decimal);
             _typeNamesAndDbTypes.Add("FILESTREAM", SqlDbType.VarBinary);
-            _typeNamesAndDbTypes.Add("image", SqlDbType.Binary);
-            _typeNamesAndDbTypes.Add("smalldatetime", SqlDbType.DateTime);
             _typeNamesAndDbTypes.Add("sql_variant", SqlDbType.Variant);
             
         }
