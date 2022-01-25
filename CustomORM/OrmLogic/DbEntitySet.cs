@@ -126,9 +126,9 @@ namespace CustomORM.OrmLogic
                     var serializedEntity = includeEntityModelSerializer.SerializeRowToEntity(reader);
                     entitiesToInclude.Add(serializedEntity);                       
                 }
+                _entityStateTracker.RegisterIncludedEntities(entitiesToInclude);
             }
-
-            _entityStateTracker.AddIncludedEntities(entitiesToInclude);
+            
         }
 
         public void Include<T2>(Expression<Func<T, T2>> expression)

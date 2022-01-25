@@ -10,28 +10,31 @@ namespace CustomORM.OrmLogic
         private readonly IEntityEqualityComparer<T> _entityEqualityComparer;
         private readonly IEntityCopyBuilder<T> _entityCopyBuilder;
         private readonly List<EntityTrackingItem<T>> _trackedEntities = new();
+        private readonly IEntityIncludingProvider<T> _entityIncludingProvider = new EntityIncludingProvider<T>();
         
-        public EntityStateTracker(IEntityCopyBuilder<T> entityCopyBuilder, IEntityEqualityComparer<T> entityEqualityComparer)
+        public EntityStateTracker(IEntityCopyBuilder<T> entityCopyBuilder,
+            IEntityEqualityComparer<T> entityEqualityComparer)
         {
             _entityCopyBuilder = entityCopyBuilder;
             _entityEqualityComparer = entityEqualityComparer;
         }
 
-        
+
         private IEnumerable<T> GetEntitiesWithState(EntityState state) =>
             _trackedEntities.Where(item => item.State == state).Select(item => item.TrackedEntity);
 
         private void MakeNewTrackItem(T entity, EntityState state)
         {
-            var trackingItem = new EntityTrackingItem<T>(entity,state ,_entityEqualityComparer, _entityCopyBuilder);
+            var trackingItem = new EntityTrackingItem<T>(entity, state, _entityEqualityComparer, _entityCopyBuilder);
             _trackedEntities.Add(trackingItem);
         }
+
         public void StartTracking(T entity)
         {
             MakeNewTrackItem(entity, EntityState.Tracked);
         }
-        
-        
+
+
         public void RegisterEntityToAdd(T entity)
         {
             MakeNewTrackItem(entity, EntityState.Added);
@@ -73,17 +76,16 @@ namespace CustomORM.OrmLogic
                 StartTracking(entity);
             }
         }
-        
+
         public void RemoveFromTracking(T entity)
         {
-            var trackedEntityItem = 
+            var trackedEntityItem =
                 _trackedEntities.FirstOrDefault(item => item.IsTrackedEntityEqual(entity));
-            
+
             if (trackedEntityItem is not null)
             {
                 _trackedEntities.Remove(trackedEntityItem);
             }
-            
         }
 
         public void RemoveFromTracking(params T[] entities)
@@ -104,10 +106,9 @@ namespace CustomORM.OrmLogic
         public IEnumerable<T> GetEntitiesToUpdate() => GetEntitiesWithState(EntityState.Changed);
 
         public IEnumerable<T> GetEntitiesToDelete() => GetEntitiesWithState(EntityState.Deleted);
-        
-        public void AddIncludedEntities(IEnumerable<object> entitiesToInclude)
+        public void RegisterIncludedEntities(List<object> entitiesToInclude)
         {
-            
+            _entityIncludingProvider.RegisterEntitiesForInclude(entitiesToInclude);
         }
     }
-} 
+}

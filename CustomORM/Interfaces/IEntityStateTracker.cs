@@ -25,6 +25,7 @@ namespace CustomORM.Interfaces
         IEnumerable<T> GetEntitiesToUpdate();
 
         IEnumerable<T> GetEntitiesToDelete();
-        void AddIncludedEntities(IEnumerable<object> entitiesToInclude);
+
+        void RegisterIncludedEntities(List<object> entitiesToInclude);
     }
 }

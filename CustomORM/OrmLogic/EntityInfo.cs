@@ -155,7 +155,7 @@ namespace CustomORM.OrmLogic
 
             return resValue;
         }
-        public Object? GetPropertyValueForEntity(PropertyInfo pr, object? target)
+        public Object? GetPropertyValueForEntity(PropertyInfo? pr, object? target)
         {
             if (pr == null)
             {
